@@ -1,0 +1,24 @@
+{
+  "category": "慢性病偵測",
+  "blood_pressure": {
+    "normal": {"systolic": "<120", "diastolic": "<80", "status": "正常"},
+    "elevated": {"systolic": "120-129", "diastolic": "<80", "status": "血壓偏高"},
+    "stage_1": {"systolic": "130-139", "diastolic": "80-89", "status": "第一期高血壓"},
+    "stage_2": {"systolic": ">=140", "diastolic": ">=90", "status": "第二期高血壓"}
+  },
+  "heart_rate": {
+    "resting_normal": "60-100 bpm",
+    "bradycardia": "<60 bpm (運動員除外)",
+    "tachycardia": ">100 bpm"
+  },
+  "bmi_standard": {
+    "underweight": "<18.5",
+    "normal": "18.5-24.0",
+    "overweight": "24.0-27.0",
+    "obese": ">27.0"
+  },
+  "advice": {
+    "hypertension": "高血壓患者建議遵循 DASH 飲食法（高纖、低鈉）。",
+    "weight_management": "BMI 異常者應結合飲食與有氧運動，並定期監測空腹血糖。"
+  }
+}

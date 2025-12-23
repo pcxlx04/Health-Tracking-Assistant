@@ -1,0 +1,34 @@
+{
+  "category": "飲食紀錄",
+  "metabolic_logic": {
+    "bmr_formula": "Mifflin-St Jeor: (10 * weight_kg) + (6.25 * height_cm) - (5 * age_y) + s (male: +5, female: -161)",
+    "activity_factor": {
+      "sedentary": 1.2,
+      "light": 1.375,
+      "moderate": 1.55
+    }
+  },
+  "nutritional_standards": {
+    "source": "台灣衛福部 (MOHW) 每日膳食營養攝取量",
+    "macro_ratios": {
+      "carbs": "50-60% (優先選擇全穀雜糧)",
+      "protein": "10-20% (優先選擇豆魚蛋肉)",
+      "fat": "20-30% (減少飽和脂肪攝取)"
+    },
+    "sodium_limit": "每日不超過 2400mg (約 6g 鹽)"
+  },
+  "calorie_estimation_reference": {
+    "common_items": {
+      "一碗白飯": "200 kcal",
+      "連鎖速食漢堡：": "550 kcal",
+      "便利商店飯糰": "200 kcal",
+      "茶葉蛋": "77 kcal",
+      "珍珠奶茶": "650 kcal",
+      "排骨便當": "800 kcal"
+    }
+  },
+  "personalized_logic": {
+    "weight_loss": "每日攝取量應為 TDEE - 300~500 kcal",
+    "muscle_gain": "蛋白質攝取應提升至 1.6g~2.0g / 每公斤體重"
+  }
+}

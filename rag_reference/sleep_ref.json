@@ -1,0 +1,28 @@
+{
+  "category": "睡眠追蹤",
+  "scientific_standards": {
+    "source": "American Academy of Sleep Medicine (AASM)",
+    "metrics": {
+      "sleep_latency": "理想入睡時間為 10-20 分鐘。超過 30 分鐘代表入睡困難；少於 5 分鐘可能代表嚴重過勞。",
+      "waso": "睡著後覺醒時間（WASO）應少於 20 分鐘。",
+      "efficiency_target": "總睡眠時間 / 在床上的時間 >= 85% 為優良。"
+    }
+  },
+  "age_recommendations": {
+    "teenager": {"range": [14, 17], "hours": [8, 10], "note": "褪黑激素分泌較晚，容易產生晚睡傾向。"},
+    "adult": {"range": [18, 64], "hours": [7, 9], "note": "需注意深層睡眠（N3期）的長度以利身體修復。"},
+    "senior": {"range": [65, 100], "hours": [7, 8], "note": "睡眠結構變淺，早醒屬正常現象，重點在於日間精神。"}
+  },
+  "sleep_architecture_logic": {
+    "first_half_night": "前半夜以 N3 深層睡眠為主，主導體力修復、生長激素分泌。",
+    "second_half_night": "後半夜以 REM 快速動眼期為主，主導情緒調節、記憶整合。若太早起床會犧牲 REM。"
+  },
+  "environmental_factors": {
+    "temperature": "理想睡眠環境溫度為 18-22°C。",
+    "blue_light": "睡前 1 小時減少藍光暴露，可增加 30% 褪黑激素分泌。",
+    "alcohol_impact": "酒精會縮短入睡時間但嚴重破壞後半夜的 REM 睡眠品質。"
+  },
+  "checklists": {
+    "recovery_score": "醒後是否口乾舌燥、是否有晨間頭痛、白天的嗜睡程度 (Epworth Scale)。"
+  }
+}
