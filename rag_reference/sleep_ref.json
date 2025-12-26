@@ -8,10 +8,48 @@
       "efficiency_target": "總睡眠時間 / 在床上的時間 >= 85% 為優良。"
     }
   },
+  "interactive_survey": {
+    "snoring": {
+      "question": "您最近是否有打呼的困擾，或曾被家人提到呼吸暫停？",
+      "options": ["有", "沒有"],
+      "analysis_hint": "若用戶選『有』，應對照 clinical_warning_signs 評估 OSA 風險，並詢問是否有醒後口乾或頭痛。"
+    },
+    "caffeine": {
+      "question": "您在下午或睡前是否有攝取咖啡因（咖啡、綠茶、能量飲料）？",
+      "options": ["是", "否"],
+      "analysis_hint": "咖啡因會干擾腺苷受體，導致 sleep_latency 拉長。建議參考 environmental_factors 建議。"
+    },
+    "alcohol": {
+      "question": "睡前是否有飲酒？",
+      "options": ["是", "否"],
+      "analysis_hint": "酒精雖縮短入睡時間，但會嚴重破壞後半夜 REM 睡眠，導致早醒。"
+    },
+    "dreaming": {
+      "question": "您昨晚是否有印象自己有做夢？",
+      "options": ["有，記得很清楚", "有，但很模糊", "完全沒印象"],
+      "analysis_hint": {
+        "有，記得很清楚": "代表昨晚有經歷完整的 REM 週期。若夢境過於頻繁且疲累，可能代表睡眠片段化或壓力較大。",
+        "有，但很模糊": "屬於正常現象，代表有進入 REM 週期但未在該階段立即醒來。",
+        "完全沒印象": "可能代表深層睡眠時間較長，或是醒來的時機不在 REM 階段。若長期無夢且自覺精神差，需注意 REM 是否被縮短。"
+      }
+    }
+  },
   "age_recommendations": {
-    "teenager": {"range": [14, 17], "hours": [8, 10], "note": "褪黑激素分泌較晚，容易產生晚睡傾向。"},
-    "adult": {"range": [18, 64], "hours": [7, 9], "note": "需注意深層睡眠（N3期）的長度以利身體修復。"},
-    "senior": {"range": [65, 100], "hours": [7, 8], "note": "睡眠結構變淺，早醒屬正常現象，重點在於日間精神。"}
+    "teenager": {
+      "range": [14, 17],
+      "hours": [8, 10],
+      "note": "褪黑激素分泌較晚，容易產生晚睡傾向。"
+    },
+    "adult": {
+      "range": [18, 64],
+      "hours": [7, 9],
+      "note": "需注意深層睡眠（N3期）的長度以利身體修復。"
+    },
+    "senior": {
+      "range": [65, 100],
+      "hours": [7, 8],
+      "note": "睡眠結構變淺，早醒屬正常現象，重點在於日間精神。"
+    }
   },
   "sleep_architecture_logic": {
     "first_half_night": "前半夜以 N3 深層睡眠為主，主導體力修復、生長激素分泌。",
@@ -21,6 +59,9 @@
     "temperature": "理想睡眠環境溫度為 18-22°C。",
     "blue_light": "睡前 1 小時減少藍光暴露，可增加 30% 褪黑激素分泌。",
     "alcohol_impact": "酒精會縮短入睡時間但嚴重破壞後半夜的 REM 睡眠品質。"
+  },
+  "clinical_warning_signs": {
+    "OSA_warning": "若出現：慣性打呼、醒後口乾舌燥、晨間頭痛、白天極度嗜睡 (Epworth Scale 評分高)。"
   },
   "checklists": {
     "recovery_score": "醒後是否口乾舌燥、是否有晨間頭痛、白天的嗜睡程度 (Epworth Scale)。"
