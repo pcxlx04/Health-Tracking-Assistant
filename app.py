@@ -49,6 +49,7 @@ def init_db():
             height REAL,
             weight REAL,
             gender TEXT,
+            current_state TEXT,
             updated_at DATETIME
         )
     ''')
@@ -110,18 +111,20 @@ def get_today_stats(user_id, category):
     
     for row in rows:
         try:
-            log_data = json.loads(row[0])
-            s_json = log_data.get('structured_json', {})
+            s_json = json.loads(row[0])
             
             if category == "飲食":
-                current_calories_sum += s_json.get('calories', 0)
+                calories = s_json.get('calories', 0)
+                try:
+                    current_calories_sum += float(calories)
+                except (ValueError, TypeError):
+                    pass
                 
             history_list.append(s_json)
         except Exception as e:
             print(f"解析歷史紀錄出錯: {e}")
 
     return current_calories_sum, f"今日歷史明細：{json.dumps(history_list, ensure_ascii=False)}"
-
 
 # RAG 知識檢索
 def get_rag_context(user_text):
@@ -154,84 +157,141 @@ def get_rag_context(user_text):
         return ""
 
 
-# AI prompt
-def smart_ai_parser(user_input, user_id):
-    category = "未知"
-    if any(k in user_input for k in ["飲食", "吃", "餐", "喝"]): category = "飲食"
-    elif any(k in user_input for k in ["睡眠", "睡"]): category = "睡眠"
-    elif any(k in user_input for k in ["血壓", "血糖", "慢性病"]): category = "慢性病"
+# 基於 LLM 的自然語言處理 (NLP) 與意圖識別
+def smart_ai_parser(user_input, user_id, fixed_category=None):
+    # 分類判定
+    category = fixed_category
+    if not category:
+        if any(k in user_input for k in ["飲食", "吃", "餐", "喝"]): category = "飲食"
+        elif any(k in user_input for k in ["睡眠", "睡"]): category = "睡眠"
+        elif any(k in user_input for k in ["血壓", "血糖", "慢性病"]): category = "慢性病"
+        else: category = "未知"
 
+    # 背景數據
     current_sum, today_history = get_today_stats(user_id, category)
-
     rag_knowledge = get_rag_context(user_input)
     user_profile_context = get_user_profile(user_id)
     record_time = datetime.now().strftime('%Y-%m-%d %H:%M')
 
-    diet_logic_prompt = ""
-    if category == "飲食":
-        diet_logic_prompt = f"""
-        【飲食統計法律】
-        - 系統已幫你算好，在你這筆紀錄之前，用戶今日已累計攝取：{current_sum} kcal。
-        - 你的任務：計算「新總計 = {current_sum} + 本次食物熱量」。
-        - 警告：禁止自行去重！即便本次輸入的食物與歷史明細重複，也必須視為新的一餐並累加熱量。
-        """
-
-    system_prompt = f"""
-    你是一個整合了 RAG 系統並具備長期數據連貫性的專業健康管家。請分析輸入並輸出 JSON。
-
-    【最高法律：RAG 與數據對齊】
-    1. 絕對禁止記憶干擾：所有健康判定（如：睡眠建議、熱量估算、血壓分級）必須 100% 引用『知識庫內容』。
-    2. 數據鎖定：嚴禁自行計算 BMR/TDEE。必須直接從『用戶基礎背景』讀取「系統鎖定基準值」。
-    3. 術語在地化：TDEE 改稱為：『每日建議攝取總熱量』，BMR 改稱為：『基礎代謝率』
-    4. 時間感知：現在是 {record_time}，請根據當前紀錄與今日歷史進行分析。
-    5. 統計邏輯：
-       - 「本次紀錄」：僅計算當下輸入的食物熱量。
-       - 「今日統計」：必須將『用戶今日已紀錄歷史』中的熱量與「本次紀錄」相加得出總和。
-
-    {diet_logic_prompt}
-
-    【知識庫內容】
-    {rag_knowledge}
-
-    【用戶今日已紀錄歷史】
-    {today_history}
+    # 定義 Advice 模板
+    specific_logic_prompt = ""
+    specific_advice_template = ""
+    specific_json_format = ""
     
-    【用戶基礎背景】
-    {user_profile_context}
-    
-    任務與輸出格式規範：
-    1. 若意圖為 'update_profile'：輸出鍵 'intent', 'height', 'weight', 'age', 'gender'。
-    
-    2. 若意圖為 'health_record'：
-       - 輸出鍵 'intent', 'category', 'structured_json', 'advice'。
-       - 'advice' 模板（嚴格遵守，禁止開場白，使用 \\n 換行）：
-
-       【紀錄日期】 {record_time}
-       
-       【 睡眠分析報告】
+    if category == "睡眠":
+        specific_advice_template = f"""
+        【 睡眠分析報告】
         ━━━━━━━━━━━━━━
         睡眠時數：[時數] 小時
         品質評估：[品質] [🟢/🟡/🔴] [達標判定]：對照您 [年齡] 歲標準，此時數 [充足/不足/過量]。
-        ──────────────────
+        ━━━━━━━━━━━━━━
         專家分析：
         ● [結構提示]：(若用戶太晚睡或早醒，請務必引用 RAG 中的 N3 修復或 REM 記憶整合邏輯說明)。
         ● [風險提醒]：(若用戶提到打呼、酒精或咖啡因，請引用 knowledge 中的警示與 analysis_hint)。
         行動建議：
         1. [建議 1：環境改善，如溫度、光線]
         2. [建議 2：行為調整，如睡前儀式、咖啡因限制]
+        """
 
-       2. 若為『飲食』：
-          熱量推估：[食物名稱] = [本次數值]kcal
-          今日統計：總累計(含本次) [今日總計]/ 每日建議攝取總熱量 [建議總量] kcal
-          代謝建議：[分析佔比並告知剩餘配額建議]。
+        specific_json_format = """{
+            "hours": "睡眠總時數 (純數字，例如 7.5)",
+            "sleep_latency": "入睡耗時 (分鐘，對應 10-20 分標準)",
+            "waso": "醒後覺醒時間 (分鐘，對應 < 20 分標準)",
+            "factors": {
+                "snoring": "是否有打呼 (true/false)",
+                "caffeine": "是否有咖啡因攝取 (true/false)",
+                "alcohol": "是否飲酒 (true/false)",
+                "dreaming": "做夢紀錄 (完全沒印象/模糊/清楚)"
+            },
+            "efficiency_score": "估算睡眠效率 (總睡眠時數/在床總時數，百分比)"
+        }"""
 
-       3. 若為『慢性病』：
-          測量狀態：[數值] -> [風險分級]
-          判定標準：(直接引用 RAG 知識庫中的數值區間進行說明)
-          行動指南：(具體的行動指引)
+    elif category == "飲食":
+        specific_logic_prompt = f"""
+       【飲食分析與法律】
+        1. 熱量判定優先級：
+            - 請先查閱知識庫 `calorie_estimation_reference` 中的 `common_items`。
+            - **若名稱匹配**：必須強制使用該數值作為 `calories`，不得自行更改。
+            - **若名稱未匹配**：由你根據內部醫學知識推估合理熱量。
+        2. 營養素分析：
+            - 透過你的內部知識，針對該食物拆解並估算：蛋白質(g)、碳水(g)、脂肪(g) 與 鈉(mg)。
+        3. 統計法律：
+            - 目前今日已累計：{current_sum} kcal。
+            - 必須計算「新總計 = {current_sum} + 本次食物熱量」。
+        """
 
-    字數限制：120 字以內，禁止贅字。
-    格式要求：結尾空兩行加上官方免責聲明：『⚠️ 以上內容僅供參考，不構成醫療診斷。』
+        specific_advice_template = """
+        【 飲食分析報告】
+        熱量推估：[食物名稱] = [本次數值]kcal
+        今日統計：總累計(含本次) [今日總計]/ 每日建議攝取總熱量 [建議總量] kcal
+        ━━━━━━━━━━
+        營養分析：
+        ● 蛋白質估算：[克數]g / 碳水：[克數]g / 脂肪：[克數]g
+        ● 鈉含量估算：[毫克]mg
+        ● 代謝建議：[分別分析今日佔比，並告知熱量、蛋白質、鈉含量剩餘配額建議]。
+        """
+
+        specific_json_format = """{
+            "items": "本次錄入的所有食物名稱，以、區隔",
+            "calories": 本次錄入的熱量總和(純數字),
+            "macros": {
+                "carbs_g": "碳水估算(克)",
+                "protein_g": "蛋白質估算(克)",
+                "fat_g": "脂肪估算(克)"
+            },
+            "sodium_mg": "鈉含量估算(毫克)",
+            "total_calories": "今日熱量加總"
+        }"""
+
+    elif category == "慢性病":
+        specific_logic_prompt = "【慢性病分析法律】直接引用 RAG 知識庫中的數值區間進行風險分級。"
+
+        specific_advice_template = """
+        測量狀態：[數值] -> [風險分級]
+        判定標準：(直接引用 RAG 知識庫)
+        行動指南：(具體的行動指引)
+        """
+
+        specific_json_format = """{
+            "type": "測量項目 (如：血壓、血糖、BMI、心率)",
+            "value": "原始數值 (如：135/85)",
+            "status": "風險分級 (如：高血壓第一期)",
+            "is_alert": bool (是否為異常數值)
+        }"""
+    
+    # 組裝 System Prompt
+    system_prompt = f"""
+    你是一個整合了 RAG 系統並具備長期數據連貫性的專業健康管家。
+    請針對【{category}】類別進行分析並輸出 JSON。
+
+    【最高法律：RAG 與數據對齊】
+    1. 絕對禁止記憶干擾：判定必須 100% 引用『知識庫內容』。
+    2. 數據鎖定：必須直接從『用戶基礎背景』讀取「系統鎖定基準值」。
+    3. 術語在地化：TDEE 改稱為：『每日建議攝取總熱量』，BMR 改稱為：『基礎代謝率』。
+    4. 時間感知：現在是 {record_time}。
+    5. 統計邏輯：
+       - 「本次紀錄」：僅計算當下輸入的食物熱量。
+       - 「今日統計」：必須將『用戶今日已紀錄歷史』中的熱量與「本次紀錄」相加。
+
+    {specific_logic_prompt}
+
+    【背景數據】
+    - 知識庫：{rag_knowledge}
+    - 今日歷史：{today_history}
+    - 用戶背景：{user_profile_context}
+    
+    任務與輸出格式規範：
+    1. 若意圖為 'update_profile'：輸出鍵 'intent', 'height', 'weight', 'age', 'gender'。
+    
+    2. 若意圖為 'health_record'：
+       - 輸出鍵 'intent', 'category', 'structured_json', 'advice'。
+       - 【必要】'category' 欄位必須固定填入："{category}" (嚴禁更動名稱，確保資料庫對齊)。
+       - 【必要】'structured_json' 的內容必須嚴格遵守此結構：{specific_json_format}，不得自行增減鍵值。
+       - 【必要】'advice' 以『【紀錄日期】 {record_time}』開頭並嚴格套用：{specific_advice_template}
+
+    一律用繁體字，嚴禁使用簡體字。
+    150 字以內，禁止贅字。
+    結尾空兩行加上官方免責聲明：『⚠️ 以上內容僅供參考，不構成醫療診斷。』
     """
     
     try:
@@ -267,6 +327,8 @@ def callback():
 def handle_message(event):
     user_id = event.source.user_id
     user_text = event.message.text
+
+    reply = "抱歉，我無法分析這筆紀錄。請試著點選功能選單，並依照提示輸入喔！"
     
     if user_text == "更新個人檔案":
         reply = (
@@ -294,17 +356,34 @@ def handle_message(event):
     
     if user_text.startswith("【紀錄】"):
         category_name = user_text.replace("【紀錄】", "")
+        
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+
+        cursor.execute("INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)", (user_id,))
+        cursor.execute("UPDATE user_profiles SET current_state = ? WHERE user_id = ?", (category_name, user_id))
+        conn.commit()
+        conn.close()
+
         prompts = {
-            "睡眠": "已進入【睡眠紀錄】模式。\n\n請描述您昨晚的入睡/起床時間與品質（例如：昨晚12點睡，早上8點醒，精神很好）。",
+            "睡眠": "已進入【睡眠紀錄】模式。\n\n請描述您昨晚的入睡/起床時間與品質（例如：昨晚12點躺下，大概30分鐘入睡，早上8點醒，精神很好）。",
             "飲食": "已進入【飲食紀錄】模式。\n\n請描述您吃了什麼（例如：午餐吃了一個漢堡和一杯珍奶）。",
             "慢性病": "已進入【慢性病紀錄】模式。\n\n請提供測量數據（例如：血壓 135/85，心率 75）。"
         }
         reply = prompts.get(category_name, "請輸入您的健康日誌：")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         return
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT current_state FROM user_profiles WHERE user_id = ?", (user_id,))
+    state_row = cursor.fetchone()
+    conn.close()
+    
+    pending_category = state_row[0] if (state_row and state_row[0]) else None
 
     # 呼叫 RAG Parser
-    result = smart_ai_parser(user_text, user_id)
+    result = smart_ai_parser(user_text, user_id, fixed_category=pending_category)
     
     if not result:
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="系統繁忙，請稍後再試。"))
@@ -324,7 +403,7 @@ def handle_message(event):
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
 
-        structured_json = json.dumps(result, ensure_ascii=False)
+        clean_structured_data = json.dumps(result.get('structured_json'), ensure_ascii=False)
 
         cursor.execute('''
             INSERT INTO health_logs (user_id, timestamp, raw_text, category, structured_data, ai_advice)
@@ -333,8 +412,10 @@ def handle_message(event):
               datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
               user_text, 
               result.get('category'), 
-              structured_json, 
+              clean_structured_data,
               result.get('advice')))
+        
+        cursor.execute("UPDATE user_profiles SET current_state = NULL WHERE user_id = ?", (user_id,))
         conn.commit()
         conn.close()
 

@@ -53,7 +53,10 @@
   },
   "sleep_architecture_logic": {
     "first_half_night": "前半夜以 N3 深層睡眠為主，主導體力修復、生長激素分泌。",
-    "second_half_night": "後半夜以 REM 快速動眼期為主，主導情緒調節、記憶整合。若太早起床會犧牲 REM。"
+    "second_half_night": "後半夜以 REM 快速動眼期為主，主導情緒調節、記憶整合。若太早起床會犧牲 REM。",
+    "cycle_consistency": "睡眠由每 90-120 分鐘一個週期組成，整夜需經歷 4-6 個完整週期。週期中斷（如半夜醒來）會導致睡眠片段化，降低修復效率。",
+    "latency_pressure_logic": "入睡耗時 < 5 分鐘通常代表『睡眠債』嚴重或過度勞累； > 30 分鐘則代表大腦未進入放鬆狀態，會延後 N3 的出現。",
+    "alcohol_rebound_effect": "酒精雖增加前半夜 N3，但在後半夜會誘發『反彈效應』，導致頻繁微覺醒與 REM 被剝奪。"
   },
   "environmental_factors": {
     "temperature": "理想睡眠環境溫度為 18-22°C。",
