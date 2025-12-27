@@ -126,6 +126,33 @@ def get_today_stats(user_id, category):
 
     return current_calories_sum, f"今日歷史明細：{json.dumps(history_list, ensure_ascii=False)}"
 
+def get_weekly_logs(user_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
+    
+    cursor.execute('''
+        SELECT category, structured_data, timestamp FROM health_logs 
+        WHERE user_id = ? AND timestamp >= ?
+        ORDER BY timestamp ASC
+    ''', (user_id, seven_days_ago))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    summary = {"飲食": [], "睡眠": [], "慢性病": []}
+    for row in rows:
+        category, data_str, time = row[0], row[1], row[2]
+        try:
+            summary[category].append({
+                "時間": time,
+                "數據": json.loads(data_str)
+            })
+        except:
+            continue
+            
+    return summary
+
 # RAG 知識檢索
 def get_rag_context(user_text):
     base_path = os.path.dirname(os.path.abspath(__file__))
@@ -312,6 +339,78 @@ def smart_ai_parser(user_input, user_id, fixed_category=None):
         return None
 
 
+# 整理數據與生成週報
+def generate_weekly_report(user_id):
+    weekly_data = get_weekly_logs(user_id)
+    user_profile = get_user_profile(user_id)
+    
+    if not any(weekly_data.values()):
+        return "📊 您本週尚無任何健康紀錄喔！"
+
+    stats = {
+        "飲食": {"總熱量": 0, "平均熱量": 0, "天數": 0},
+        "睡眠": {"總時數": 0, "平均時數": 0, "天數": 0},
+        "慢性病": {"紀錄筆數": 0}
+    }
+
+    diet_days = set(log["時間"].split(' ')[0] for log in weekly_data["飲食"])
+    stats["飲食"]["天數"] = len(diet_days)
+    if stats["飲食"]["天數"] > 0:
+        total_cal = sum(log["數據"].get("calories", 0) for log in weekly_data["飲食"])
+        stats["飲食"]["總熱量"] = total_cal
+        stats["飲食"]["平均熱量"] = round(total_cal / stats["飲食"]["天數"], 1)
+
+    sleep_days = set(log["時間"].split(' ')[0] for log in weekly_data["睡眠"])
+    stats["睡眠"]["天數"] = len(sleep_days)
+    if stats["睡眠"]["天數"] > 0:
+        total_sleep = sum(log["數據"].get("hours", 0) for log in weekly_data["睡眠"])
+        stats["睡眠"]["平均時數"] = round(total_sleep / stats["睡眠"]["天數"], 1)
+
+    system_prompt = f"""
+    你是一位專業的健康顧問。請根據以下【精確統計數據】為用戶撰寫週報。
+    
+    【用戶生理背景】
+    {user_profile}
+
+    【本週精確統計 (由系統計算，請直接引用)】
+    - 飲食：總攝取 {stats['飲食']['總熱量']} kcal，實際紀錄 {stats['飲食']['天數']} 天，平均每日 {stats['飲食']['平均熱量']} kcal。
+    - 睡眠：實際紀錄 {stats['睡眠']['天數']} 天，平均每日睡 {stats['睡眠']['平均時數']} 小時。
+    
+    【詳細紀錄明細】
+    {json.dumps(weekly_data, ensure_ascii=False)}
+
+    撰寫要求：
+    1. 嚴禁自行重新計算平均值，必須直接引用上方提供的【精確統計數據】。
+    2. 嚴禁 Markdown 語法，改用實心圓點、方括號或分隔線。
+    3. 分析重點：
+       - 飲食：對照 TDEE 評價 {stats['飲食']['平均熱量']} kcal 是過高或過低。
+       - 睡眠：分析時數是否穩定。
+       - 慢性病：找出明細中的異常紅字。
+    4. 內容結構：
+       [健康分析週報]
+       ━━━━━━━━━━
+       (分類標題，例如：【飲食分析 🍽️】)
+       總結：(您本週紀錄了 X 天，平均每日...)
+       分析：(對照生理指標與 RAG 指引)
+       ━━━━━━━━━━
+       (重複其他分類)
+       ● 下週行動建議 📝
+       1. ...
+       2. ...
+    5. 150-200 字內，繁體中文，保持簡潔。
+    6. 結尾：⚠️ 以上內容僅供參考，不構成醫療診斷。
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": system_prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"週報生成失敗: {e}")
+        return "系統繁忙，週報生成失敗，請稍後再試。"
+
 # LINE Webhook & 訊息處理
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -374,6 +473,15 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         return
     
+    if user_text == "查看健康報告":
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="📊 正在彙整您過去 7 天的健康數據，請稍候..."))
+        
+        report = generate_weekly_report(user_id)
+        
+        line_bot_api.push_message(user_id, TextSendMessage(text=report))
+        return
+
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT current_state FROM user_profiles WHERE user_id = ?", (user_id,))
