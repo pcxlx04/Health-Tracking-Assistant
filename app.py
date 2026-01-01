@@ -274,48 +274,54 @@ def smart_ai_parser(user_input, user_id, fixed_category=None):
     elif category == "慢性病":
         specific_logic_prompt = """
         【慢性病分析法則】
-        1. 從用戶輸入提取：血壓、心率、血糖(判斷空腹/飯後)、身高體重
-        2. 計算 BMI = 體重(kg) ÷ [身高(m)]²
-        3. 對照知識庫判定各指標分級與 emoji
-        4. 根據血壓等級從知識庫選擇對應 DASH 飲食方案
-        5. 檢查是否符合代謝症候群(血壓偏高 + BMI>24 + 血糖異常)
-        6. 從知識庫 action_plans 提取行動建議
-        """
+        1. 指標提取（嚴格執行）：
+        - 僅提取本次輸入的血壓、心率、血糖。若未提及，value 填 "未紀錄"、status 填 "-"、emoji 填 "⚪"。
 
-        specific_advice_template = """
-        【慢性病分析報告】{record_time}
-        📊 檢測結果
-        {emoji} 血壓：{value} → {status}
-        {emoji} 心率：{value} bpm → {status}
-        {emoji} 血糖：{value} mg/dL → {status}
-        {emoji} BMI：{value} → {status}
-        ━━━━━━━━━━━━━━
-        🥗 DASH 飲食建議
-        每日鈉攝取：{sodium}
-        建議食物：{eat}
-        避免食物：{avoid}
-        範例菜單：{menu}
+        2. BMI 計算邏輯（連動背景資料）：
+        - 優先級 A：若本次輸入包含「體重」，則結合背景資料 {user_profile_context} 中的「身高」重新計算 BMI。
+        - 優先級 B：若本次未輸入體重，但背景資料 {user_profile_context} 中已有身高與體重，則依背景資料計算 BMI 並註記 "(依據存檔資料)"。
+        - 優先級 C：若背景資料與本次輸入皆無身高或體重，value 填 "未紀錄"、status 填 "-"、emoji 填 "⚪"。
+        - 公式：BMI = 體重(kg) / [身高(m)]²。
 
-        🎯 行動計畫
-        立即：{immediate}
-        本週：{weekly}
-        每月：{monthly}
+        3. 顯示控制邏輯：
+        - 判定「全正常」：若血壓、血糖、BMI 的 emoji 皆為 🟢。
+        - **若全正常**：dash_section 填寫為 "🎯 行動計畫：繼續保持優良生活習慣！"
+        - **若有任何一項為 🟠 或 🔴**：請將以下格式的文字拼好後，填入 dash_section 欄位：
+            🥗 DASH 飲食建議
+            每日鈉攝取：{數值}
+            建議食物：{建議}
+            避免食物：{忌食}
+            範例菜單：{範例}
+         
+            🎯 行動計畫
+            立即：{立即}
+            本週：{本週}
+            每月：{每月}
 
-        {metabolic_alert}
-
-        ⚠️ 以上內容僅供參考，不構成醫療診斷。
+        4. 代謝症候群判定：正常顯示「✅ 代謝風險低」，異常顯示「⚠️ 符合代謝症候群指標,心血管疾病風險大幅提升」，資料不足的話不顯示。
         """
 
         specific_json_format = """{
-            "type": "測量項目有填寫的必須每個都記錄到 (血壓、心率、血糖、BMI)",
-            "value": "原始數值 (如：135/85、75、110)",
-            "status": "風險分級 (如：第一期高血壓、正常心率)",
-            "emoji": "對應表情 (🟢🟡🟠🔴)",
-            "is_alert": bool,
-            "dash_guide": {"sodium": "鈉限制", "eat": "建議食物", "avoid": "避免食物", "menu": "菜單"},
-            "actions": {"immediate": "立即行動", "weekly": "本週目標", "monthly": "每月追蹤"},
-            "metabolic_alert": "代謝症候群警示 (若有)"
+            "blood_pressure": {"value": "收縮壓/舒張壓 或 未紀錄", "status": "分級", "emoji": "🟢/🟠/🔴/⚪", "is_alert": bool},
+            "heart_rate": {"value": "數值 或 未紀錄", "status": "狀態", "emoji": "🟢/🟠/🔴/⚪", "is_alert": bool},
+            "blood_sugar": {"value": "數值(狀態) 或 未紀錄", "status": "狀態", "emoji": "🟢/🟠/🔴/⚪", "is_alert": bool},
+            "BMI": {"value": "數值 或 未紀錄", "status": "狀態", "emoji": "🟢/🟠/🔴/⚪", "is_alert": bool},
+            "dash_section": "這裡存放根據邏輯拼好的字串",
+            "metabolic_alert": "警示文字 或 無"
         }"""
+
+        specific_advice_template = """
+        【紀錄日期】 {record_time}
+        📊 檢測結果
+        {bp_emoji} 血壓：{bp_value} → {bp_status}
+        {hr_emoji} 心率：{hr_value} → {hr_status}
+        {bs_emoji} 血糖：{bs_value} → {bs_status}
+        {bmi_emoji} BMI：{bmi_value} → {bmi_status}
+        ━━━━━━━━━━━━━━
+        {dash_section}
+
+        {metabolic_alert_text}
+        """
     
     # 組裝 System Prompt
     system_prompt = f"""
