@@ -67,7 +67,8 @@ def get_user_profile(user_id):
     if profile:
         age, height, weight, gender = profile[0], profile[1], profile[2], profile[3]
         
-        s = 5 if "男" in gender else -161
+        gender_str = gender if gender else "女"
+        s = 5 if "男" in gender_str else -161
         bmr = (10 * weight) + (6.25 * height) - (5 * age) + s
         tdee = bmr * 1.2
         
@@ -271,7 +272,7 @@ def smart_ai_parser(user_input, user_id, fixed_category=None):
         }"""
 
     elif category == "慢性病":
-        specific_logic_prompt = specific_logic_prompt = f"""
+        specific_logic_prompt = """
         【慢性病分析法則】
         1. 從用戶輸入提取：血壓、心率、血糖(判斷空腹/飯後)、身高體重
         2. 計算 BMI = 體重(kg) ÷ [身高(m)]²
@@ -279,10 +280,6 @@ def smart_ai_parser(user_input, user_id, fixed_category=None):
         4. 根據血壓等級從知識庫選擇對應 DASH 飲食方案
         5. 檢查是否符合代謝症候群(血壓偏高 + BMI>24 + 血糖異常)
         6. 從知識庫 action_plans 提取行動建議
-
-        知識庫：{rag_knowledge}
-        用戶背景：{user_profile_context}
-        記錄時間：{record_time}
         """
 
         specific_advice_template = """
@@ -309,9 +306,8 @@ def smart_ai_parser(user_input, user_id, fixed_category=None):
         ⚠️ 以上內容僅供參考，不構成醫療診斷。
         """
 
-
         specific_json_format = """{
-            "type": "測量項目 (血壓、心率、血糖、BMI)",
+            "type": "測量項目有填寫的必須每個都記錄到 (血壓、心率、血糖、BMI)",
             "value": "原始數值 (如：135/85、75、110)",
             "status": "風險分級 (如：第一期高血壓、正常心率)",
             "emoji": "對應表情 (🟢🟡🟠🔴)",
@@ -343,7 +339,7 @@ def smart_ai_parser(user_input, user_id, fixed_category=None):
     - 用戶背景：{user_profile_context}
     
     任務與輸出格式規範：
-    1. 若意圖為 'update_profile'：輸出鍵 'intent', 'height', 'weight', 'age', 'gender'。
+    1. 若意圖為 'update_profile'：必須輸出 JSON，且 Key 必須為 "intent", "height", "weight", "age", "gender" (數值為數字，性別為字串)。
     
     2. 若意圖為 'health_record'：
        - 輸出鍵 'intent', 'category', 'structured_json', 'advice'。
@@ -352,7 +348,7 @@ def smart_ai_parser(user_input, user_id, fixed_category=None):
        - 【必要】'advice' 以『【紀錄日期】 {record_time}』開頭並嚴格套用：{specific_advice_template}
 
     一律用繁體字，嚴禁使用簡體字。
-    150 字以內，禁止贅字。
+    300 字以內，禁止贅字。
     結尾空兩行加上官方免責聲明：『⚠️ 以上內容僅供參考，不構成醫療診斷。』
     """
     
@@ -385,9 +381,16 @@ def generate_weekly_report(user_id):
     stats = {
         "飲食": {"總熱量": 0, "平均熱量": 0, "天數": 0},
         "睡眠": {"總時數": 0, "平均時數": 0, "天數": 0},
-        "慢性病": {"紀錄筆數": 0}
+        "慢性病": {
+            "筆數": 0,
+            "血壓紀錄": [],
+            "心率紀錄": [],
+            "血糖紀錄": [],
+            "異常警告數": 0
+        }
     }
 
+    # 1. 解析飲食數據
     diet_days = set(log["時間"].split(' ')[0] for log in weekly_data["飲食"])
     stats["飲食"]["天數"] = len(diet_days)
     if stats["飲食"]["天數"] > 0:
@@ -395,11 +398,39 @@ def generate_weekly_report(user_id):
         stats["飲食"]["總熱量"] = total_cal
         stats["飲食"]["平均熱量"] = round(total_cal / stats["飲食"]["天數"], 1)
 
+    # 2. 解析睡眠數據
     sleep_days = set(log["時間"].split(' ')[0] for log in weekly_data["睡眠"])
     stats["睡眠"]["天數"] = len(sleep_days)
     if stats["睡眠"]["天數"] > 0:
         total_sleep = sum(log["數據"].get("hours", 0) for log in weekly_data["睡眠"])
         stats["睡眠"]["平均時數"] = round(total_sleep / stats["睡眠"]["天數"], 1)
+
+    # 3. 解析慢性病數據
+    for log in weekly_data["慢性病"]:
+        items = log["數據"]
+        if isinstance(items, list):
+            stats["慢性病"]["筆數"] += 1
+            for item in items:
+                v_type = item.get("type")
+                v_val = item.get("value")
+                is_alert = item.get("is_alert", False)
+                
+                if is_alert:
+                    stats["慢性病"]["異常警告數"] += 1
+                
+                if "血壓" in v_type:
+                    stats["慢性病"]["血壓紀錄"].append(v_val)
+                elif "心率" in v_type:
+                    stats["慢性病"]["心率紀錄"].append(v_val)
+                elif "血糖" in v_type:
+                    stats["慢性病"]["血糖紀錄"].append(v_val)
+
+    chronic_summary = (
+        f"- 總測量筆數：{stats['慢性病']['筆數']} 筆\n"
+        f"- 異常警告次數：{stats['慢性病']['異常警告數']} 次\n"
+        f"- 本週血壓軌跡：{', '.join(stats['慢性病']['血壓紀錄']) if stats['慢性病']['血壓紀錄'] else '無'}\n"
+        f"- 本週血糖軌跡：{', '.join(stats['慢性病']['血糖紀錄']) if stats['慢性病']['血糖紀錄'] else '無'}"
+    )
 
     system_prompt = f"""
     你是一位專業的健康顧問。請根據以下【精確統計數據】為用戶撰寫週報。
@@ -410,9 +441,17 @@ def generate_weekly_report(user_id):
     【本週精確統計 (由系統計算，請直接引用)】
     - 飲食：總攝取 {stats['飲食']['總熱量']} kcal，實際紀錄 {stats['飲食']['天數']} 天，平均每日 {stats['飲食']['平均熱量']} kcal。
     - 睡眠：實際紀錄 {stats['睡眠']['天數']} 天，平均每日睡 {stats['睡眠']['平均時數']} 小時。
+    - 慢性病趨勢： {chronic_summary}
     
     【詳細紀錄明細】
     {json.dumps(weekly_data, ensure_ascii=False)}
+
+    【數值比較絕對準則】
+    1. 判定能量攝取狀態：
+       - 若 平均攝取 < TDEE：必須判定為「達標」或「低於建議量」，並給予正面鼓勵。
+       - 若 平均攝取 > TDEE：才可判定為「過高」或「需調整」。
+       - 絕對禁止將小於 TDEE 的數值描述為「略高」。
+    2. 數值敏感度：1448.4 小於 1481，這在數學上是「減少」而非「增加」。
 
     撰寫要求：
     1. 嚴禁自行重新計算平均值，必須直接引用上方提供的【精確統計數據】。
@@ -420,15 +459,15 @@ def generate_weekly_report(user_id):
     3. 分析重點：
        - 飲食：對照 TDEE 評價 {stats['飲食']['平均熱量']} kcal 是過高或過低。
        - 睡眠：分析時數是否穩定。
-       - 慢性病：找出明細中的異常紅字。
+       - 慢性病：必須針對數值的軌跡進行點評（例如：您的血壓有上升趨勢，請注意）。
     4. 內容結構：
        [健康分析週報]
        ━━━━━━━━━━
-       (分類標題，例如：【飲食分析 🍽️】)
-       總結：(您本週紀錄了 X 天，平均每日...)
-       分析：(對照生理指標與 RAG 指引)
+      【飲食與營養 🍽️】
+      【睡眠品質 💤】
+      【慢性病追蹤 🩺】
+      【綜合生活洞察 🧠】- 分析「睡眠、飲食、生理指標」三者間的交互影響。
        ━━━━━━━━━━
-       (重複其他分類)
        ● 下週行動建議 📝
        1. ...
        2. ...
@@ -502,7 +541,11 @@ def handle_message(event):
         prompts = {
             "睡眠": "已進入【睡眠紀錄】模式。\n\n請描述您昨晚的入睡/起床時間與品質（例如：昨晚12點躺下，大概30分鐘入睡，早上8點醒，精神很好）。",
             "飲食": "已進入【飲食紀錄】模式。\n\n請描述您吃了什麼（例如：午餐吃了一個漢堡和一杯珍奶）。",
-            "慢性病": "已進入【慢性病紀錄】模式。\n\n請提供測量數據（例如：血壓 135/85，心率 75）。"
+            "慢性病": (
+                    "已進入【慢性病紀錄】模式。\n\n請提供測量數據，可包含血壓、心率或血糖，例如：\n"
+                    "「血壓 135/85，心率 72，血糖 110 (飯後)。」\n\n"
+                    "💡 若體重有變化也可以順便告訴我喔！"
+                    )
         }
         reply = prompts.get(category_name, "請輸入您的健康日誌：")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
