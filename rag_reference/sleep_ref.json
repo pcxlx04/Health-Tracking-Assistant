@@ -3,70 +3,78 @@
   "scientific_standards": {
     "source": "American Academy of Sleep Medicine (AASM)",
     "metrics": {
-      "sleep_latency": "理想入睡時間為 10-20 分鐘。超過 30 分鐘代表入睡困難；少於 5 分鐘可能代表嚴重過勞。",
-      "waso": "睡著後覺醒時間（WASO）應少於 20 分鐘。",
-      "efficiency_target": "總睡眠時間 / 在床上的時間 >= 85% 為優良。"
+      "sleep_latency": "理想 10-20 分鐘。 < 5 分鐘代表過勞； > 30 分鐘代表入睡困難。",
+      "waso": "睡著後覺醒時間 (WASO) 應少於 20 分鐘。",
+      "efficiency_target": "總睡眠時間 / 在床上的時間 >= 85% 為優良指標。"
     }
   },
-  "interactive_survey": {
-    "snoring": {
-      "question": "您最近是否有打呼的困擾，或曾被家人提到呼吸暫停？",
-      "options": ["有", "沒有"],
-      "analysis_hint": "若用戶選『有』，應對照 clinical_warning_signs 評估 OSA 風險，並詢問是否有醒後口乾或頭痛。"
+  "quality_assessment_engine": {
+    "evaluation_levels": {
+      "excellent": "入睡 10-20 分鐘，無片段化，醒後神清氣爽。",
+      "fair": "入睡耗時稍長，或有 1 次短暫覺醒，日間功能基本正常。",
+      "poor": "符合任一：入睡 > 30min、WASO > 20min、醒後有臨床警訊、日間極度嗜睡。"
     },
-    "caffeine": {
-      "question": "您在下午或睡前是否有攝取咖啡因（咖啡、綠茶、能量飲料）？",
-      "options": ["是", "否"],
-      "analysis_hint": "咖啡因會干擾腺苷受體，導致 sleep_latency 拉長。建議參考 environmental_factors 建議。"
+    "dimension_tags": {
+      "restoration": "體力恢復度（對應 N3 深層睡眠）",
+      "emotional_stability": "情緒與記憶整合（對應 REM 快速動眼期）",
+      "continuity": "睡眠連續性（對應週期完整度）"
+    }
+  },
+  "natural_language_processing_logic": {
+    "snoring_and_osa": {
+      "keyword_triggers": ["打呼", "鼾聲", "呼吸暫停", "憋氣", "窒息感", "醒後口乾"],
+      "analysis_hint": "若出現關鍵字，應對照 clinical_warning_signs 評估 OSA 風險。",
+      "follow_up_strategy": "詢問：『是否有晨間頭痛或白天突然斷片式嗜睡的情況？』"
     },
-    "alcohol": {
-      "question": "睡前是否有飲酒？",
-      "options": ["是", "否"],
-      "analysis_hint": "酒精雖縮短入睡時間，但會嚴重破壞後半夜 REM 睡眠，導致早醒。"
+    "caffeine_intake": {
+      "keyword_triggers": ["咖啡", "綠茶", "紅牛", "拿鐵", "手搖飲", "可樂", "咖啡因"],
+      "analysis_hint": "干擾腺苷受體，延後 N3 深層睡眠的出現，拉長入睡潛伏期。",
+      "follow_up_strategy": "建議：『下午兩點後減少攝取，避免干擾晚間的睡眠驅動力。』"
     },
-    "dreaming": {
-      "question": "您昨晚是否有印象自己有做夢？",
-      "options": ["有，記得很清楚", "有，但很模糊", "完全沒印象"],
-      "analysis_hint": {
-        "有，記得很清楚": "代表昨晚有經歷完整的 REM 週期。若夢境過於頻繁且疲累，可能代表睡眠片段化或壓力較大。",
-        "有，但很模糊": "屬於正常現象，代表有進入 REM 週期但未在該階段立即醒來。",
-        "完全沒印象": "可能代表深層睡眠時間較長，或是醒來的時機不在 REM 階段。若長期無夢且自覺精神差，需注意 REM 是否被縮短。"
+    "alcohol_impact": {
+      "keyword_triggers": ["喝酒", "紅酒", "啤酒", "威士忌", "小酌", "微醺", "睡前酒"],
+      "analysis_hint": "觸發 alcohol_rebound_effect，破壞後半夜 REM 睡眠，導致早醒。",
+      "follow_up_strategy": "提醒：『雖然酒精能幫助入睡，但會導致後半夜睡眠片段化，讓隔天更累。』"
+    },
+    "dreaming_and_rem": {
+      "vivid_dream": {
+        "keyword_triggers": ["夢得很清楚", "夢境很真", "一直做夢", "噩夢", "夢到"],
+        "insight": "代表有經歷完整 REM。若感到累，可能代表睡眠片段化或壓力大。"
+      },
+      "vague_dream": {
+        "keyword_triggers": ["模糊", "隱約有夢", "忘記夢什麼"],
+        "insight": "正常現象，代表有進入 REM 但未在該階段立即醒來。"
+      },
+      "no_dream": {
+        "keyword_triggers": ["沒做夢", "沒印象", "完全沒夢"],
+        "insight": "可能醒在 N3 階段。若長期無夢且自覺精神差，需注意 REM 是否被縮短。"
       }
-    }
-  },
-  "age_recommendations": {
-    "teenager": {
-      "range": [14, 17],
-      "hours": [8, 10],
-      "note": "褪黑激素分泌較晚，容易產生晚睡傾向。"
     },
-    "adult": {
-      "range": [18, 64],
-      "hours": [7, 9],
-      "note": "需注意深層睡眠（N3期）的長度以利身體修復。"
-    },
-    "senior": {
-      "range": [65, 100],
-      "hours": [7, 8],
-      "note": "睡眠結構變淺，早醒屬正常現象，重點在於日間精神。"
+    "morning_status": {
+      "negative": ["頭痛", "昏沉", "沒睡飽", "越睡越累", "想賴床", "口乾"],
+      "positive": ["神清氣爽", "自然醒", "精神好", "體力充沛"]
     }
   },
   "sleep_architecture_logic": {
-    "first_half_night": "前半夜以 N3 深層睡眠為主，主導體力修復、生長激素分泌。",
+    "first_half_night": "前半夜以 N3 深層睡眠為主，主導體力修復、生長激素分泌。若入睡超過 30 分鐘會壓縮此階段。",
     "second_half_night": "後半夜以 REM 快速動眼期為主，主導情緒調節、記憶整合。若太早起床會犧牲 REM。",
-    "cycle_consistency": "睡眠由每 90-120 分鐘一個週期組成，整夜需經歷 4-6 個完整週期。週期中斷（如半夜醒來）會導致睡眠片段化，降低修復效率。",
-    "latency_pressure_logic": "入睡耗時 < 5 分鐘通常代表『睡眠債』嚴重或過度勞累； > 30 分鐘則代表大腦未進入放鬆狀態，會延後 N3 的出現。",
+    "cycle_consistency": "每 90-120 分鐘一週期，整夜需經歷 4-6 個。半夜醒來（片段化）會降低修復效率。",
+    "latency_pressure_logic": {
+      "under_5_min": "代表『睡眠債』嚴重或身體過度勞累。",
+      "over_30_min": "大腦未進入放鬆狀態，會延後 N3 深層睡眠的出現。"
+    },
     "alcohol_rebound_effect": "酒精雖增加前半夜 N3，但在後半夜會誘發『反彈效應』，導致頻繁微覺醒與 REM 被剝奪。"
   },
+  "age_recommendations": {
+    "teenager": { "range": [14, 17], "hours": [8, 10], "note": "褪黑激素分泌較晚，容易晚睡。" },
+    "adult": { "range": [18, 64], "hours": [7, 9], "note": "重點在於確保 N3 深層睡眠的長度。" },
+    "senior": { "range": [65, 100], "hours": [7, 8], "note": "睡眠結構變淺，早醒屬正常，重點在於日間精神。" }
+  },
   "environmental_factors": {
-    "temperature": "理想睡眠環境溫度為 18-22°C。",
-    "blue_light": "睡前 1 小時減少藍光暴露，可增加 30% 褪黑激素分泌。",
-    "alcohol_impact": "酒精會縮短入睡時間但嚴重破壞後半夜的 REM 睡眠品質。"
+    "temperature": "理想溫度 18-22°C。",
+    "blue_light": "睡前 1 小時減少藍光，可增加 30% 褪黑激素分泌。"
   },
   "clinical_warning_signs": {
-    "OSA_warning": "若出現：慣性打呼、醒後口乾舌燥、晨間頭痛、白天極度嗜睡 (Epworth Scale 評分高)。"
-  },
-  "checklists": {
-    "recovery_score": "醒後是否口乾舌燥、是否有晨間頭痛、白天的嗜睡程度 (Epworth Scale)。"
+    "OSA_warning": "慣性打呼、醒後口乾舌燥、晨間頭痛、白天極度嗜睡 (Epworth Scale)。"
   }
 }
