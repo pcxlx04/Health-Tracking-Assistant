@@ -422,11 +422,17 @@ def generate_weekly_report(user_id):
         }
     }
 
-    # 1. 解析飲食數據
+   # 1. 解析飲食數據
     diet_days = set(log["時間"].split(' ')[0] for log in weekly_data["飲食"])
     stats["飲食"]["天數"] = len(diet_days)
     if stats["飲食"]["天數"] > 0:
-        total_cal = sum(log["數據"].get("calories", 0) for log in weekly_data["飲食"])
+        total_cal = 0
+        for log in weekly_data["飲食"]:
+            data = log["數據"]
+            if isinstance(data, dict):
+                val = data.get("calories", 0)
+                try: total_cal += float(val)
+                except: pass
         stats["飲食"]["總熱量"] = total_cal
         stats["飲食"]["平均熱量"] = round(total_cal / stats["飲食"]["天數"], 1)
 
@@ -434,7 +440,13 @@ def generate_weekly_report(user_id):
     sleep_days = set(log["時間"].split(' ')[0] for log in weekly_data["睡眠"])
     stats["睡眠"]["天數"] = len(sleep_days)
     if stats["睡眠"]["天數"] > 0:
-        total_sleep = sum(log["數據"].get("hours", 0) for log in weekly_data["睡眠"])
+        total_sleep = 0
+        for log in weekly_data["睡眠"]:
+            data = log["數據"]
+            if isinstance(data, dict):
+                val = data.get("hours", 0)
+                try: total_sleep += float(val)
+                except: pass
         stats["睡眠"]["平均時數"] = round(total_sleep / stats["睡眠"]["天數"], 1)
 
     # 3. 解析慢性病數據
