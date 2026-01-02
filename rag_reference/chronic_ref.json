@@ -2,6 +2,7 @@
   "category": "慢性病偵測",
   
   "blood_pressure": {
+    "unrecorded": {"range": null, "status": "-", "emoji": "⚪", "note": "未提供數據，不觸發任何飲食建議"},
     "normal": {"range": [90, 120, 60, 80], "status": "正常", "emoji": "🟢"},
     "elevated": {"range": [120, 130, 60, 80], "status": "血壓偏高", "emoji": "🟡"},
     "stage_1": {"range": [130, 140, 80, 90], "status": "第一期高血壓", "emoji": "🟠"},
